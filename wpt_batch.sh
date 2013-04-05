@@ -16,7 +16,7 @@ count=1
 for urlFile in $urlFiles
 do
 	echo Processing $urlFile on $device-"$count"
-	python wpt_batch.py --server=http://www.benjaminhoanle.com/ --outputdir="$now/" --urlfile=$urlFile --tcpdump --location=$device-"$count" --runs=1 &
+	python wpt_batch.py --server=http://www.benjaminhoanle.com/ --outputdir="$now/results/" --urlfile=$urlFile --tcpdump --location=$device-"$count" --runs=1 &
 	count=$((count+1))
 done
 
