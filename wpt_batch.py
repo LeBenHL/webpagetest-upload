@@ -199,7 +199,7 @@ def main():
                            default='Test', help='test location')
   option_parser.add_option('-m', '--mv', action='store', default=1,
                            help='video only saved for the median run')
-    option_parser.add_option('-b', '--mobile', action='store', default=0,
+  option_parser.add_option('-b', '--mobile', action='store_true',
                            help='Turn on Chrome Mobile Option')
 
   options, args = option_parser.parse_args()
