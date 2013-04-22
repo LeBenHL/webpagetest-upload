@@ -50,7 +50,7 @@ def ImportUrls(url_filename):
   return url_list
 
 
-def SubmitBatch(url_list, test_params, server_url='http://www.webpagetest.org/',
+def SubmitBatch(url, test_params, server_url='http://www.webpagetest.org/',
                 urlopen=urllib.urlopen):
   """Submit the tests to WebPageTest server.
 
@@ -61,23 +61,20 @@ def SubmitBatch(url_list, test_params, server_url='http://www.webpagetest.org/',
     urlopen: the callable to be used to load the request
 
   Returns:
-    A dictionary which maps a WPT test id to its URL if submission
-    is successful.
+    A a WPT test id
   """
-  id_url_dict = {}
-  for url in url_list:
-    test_params['url'] = url
-    request = server_url + 'runtest.php?%s' % urllib.urlencode(test_params)
-    response = __LoadEntity(request, urlopen)
-    return_code = response.getcode()
-    if return_code == 200:
-      dom = minidom.parseString(response.read())
-      nodes = dom.getElementsByTagName('statusCode')
-      status = nodes[0].firstChild.wholeText
-      if status == '200':
-        test_id = dom.getElementsByTagName('testId')[0].firstChild.wholeText
-        id_url_dict[test_id] = url
-  return id_url_dict
+  test_params['url'] = url
+  request = server_url + 'runtest.php?%s' % urllib.urlencode(test_params)
+  response = __LoadEntity(request, urlopen)
+  return_code = response.getcode()
+  if return_code == 200:
+    dom = minidom.parseString(response.read())
+    nodes = dom.getElementsByTagName('statusCode')
+    status = nodes[0].firstChild.wholeText
+    if status == '200':
+      test_id = dom.getElementsByTagName('testId')[0].firstChild.wholeText
+      return test_id
+  return None
 
 
 def CheckBatchStatus(test_ids, server_url='http://www.webpagetest.org/',
@@ -119,7 +116,7 @@ def GetXMLResult(test_ids, server_url='http://www.webpagetest.org/',
   """
   id_dom_dict = {}
   for test_id in test_ids:
-    request = server_url + 'xmlResult/' + test_id + '/'
+    request = server_url + 'xmlResult.php?test=' + test_id
     response = __LoadEntity(request, urlopen)
     if response.getcode() == 200:
       dom = minidom.parseString(response.read())

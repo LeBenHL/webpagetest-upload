@@ -29,6 +29,8 @@ import logging
 import optparse
 import os
 import time
+import sys
+import csv
 
 import wpt_batch_lib
 
@@ -51,7 +53,7 @@ def BuildFileName(url):
   return filename
 
 
-def SaveTestResult(output_dir, url, test_id, content):
+def SaveTestResult(output_dir, directory_name, url, test_id, content):
   """Save the result of a test into a file on disk.
 
   Args:
@@ -64,7 +66,11 @@ def SaveTestResult(output_dir, url, test_id, content):
     None
   """
   filename = BuildFileName(url)
-  filename = '%s/%s.%s.xml' % (output_dir.rstrip('/'), filename, test_id)
+  directoryName = BuildFileName(directory_name)
+  newDir = output_dir.rstrip('/') + "/" + directoryName
+  if not os.path.isdir(newDir):
+      os.mkdir(newDir)
+  filename = '%s/%s.%s.xml' % (newDir, filename, test_id)
   output = open(filename, 'wb')
   output.write(content)
   output.close()
@@ -72,7 +78,11 @@ def SaveTestResult(output_dir, url, test_id, content):
 
 def RunBatch(options):
   """Run one-off batch processing of WebpageTest testing."""
-
+  
+  locations = []
+  locations.append("Android-Nexus4")
+  locations.append("Thinkpad-WPTDrive:Chrome")
+  locations.append("Thinkpad-WPTDrive:Chrome")
   test_params = {'f': 'xml',
                  'private': 1,
                  'priority': 6,
@@ -97,53 +107,104 @@ def RunBatch(options):
     test_params['script'] = open(options.script, 'rb').read()
   if options.key:
     test_params['k'] = options.key
-  if options.mobile:
-    test_params['mobile'] = options.mobile
 
   requested_urls = wpt_batch_lib.ImportUrls(options.urlfile)
-  id_url_dict = wpt_batch_lib.SubmitBatch(requested_urls, test_params,
-                                          options.server)
+  csvfile = open(options.outputdir + '/imageComparison.csv', 'wb')
+  writer = csv.writer(csvfile)
+  writer.writerow(['url'] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"] + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"])
 
-  submitted_urls = set(id_url_dict.values())
   for url in requested_urls:
-    if url not in submitted_urls:
-      logging.warn('URL submission failed: %s', url)
+    id_url_dict = {}
+    location_id_dict = {}
+    id_dom_dict = {}
+    for i in range(len(locations)):
+      location = locations[i]
+      if i == 2:
+        test_params['mobile'] = 1
+      else:
+        test_params['mobile'] = 0  
+      if options.connectivity == 'custom':
+        test_params['location'] = location + '.custom'
+      else:
+        test_params['location'] = location + '.' + options.connectivity
 
-  pending_test_ids = id_url_dict.keys()
-  if not os.path.isdir(options.outputdir):
-    os.mkdir(options.outputdir)
-  while pending_test_ids:
-    # TODO(zhaoq): add an expiring mechanism so that if some tests are stuck
-    # too long they will reported as permanent errors and while loop will be
-    # terminated.
-
-    id_status_dict = wpt_batch_lib.CheckBatchStatus(pending_test_ids,
-                                                    server_url=options.server)
-    completed_test_ids = []
-    for test_id, test_status in id_status_dict.iteritems():
-      # We could get 4 different status codes with different meanings as
-      # as follows:
-      # 1XX: Test in progress
-      # 200: Test complete
-      # 4XX: Test request not found
-      if int(test_status) >= 200:
-        pending_test_ids.remove(test_id)
-        if test_status == '200':
-          completed_test_ids.append(test_id)
+        id = wpt_batch_lib.SubmitBatch(url, test_params,
+                                            options.server)
+        if (id != None):
+          location_id_dict[i] = id
+          if test_params['mobile']:
+            id_url_dict[id] = url + "_" + location + "_mobile"
+          else:
+            id_url_dict[id] = url + "_" + location 
         else:
-          logging.warn('Tests failed with status $s: %s', test_status, test_id)
-    test_results = wpt_batch_lib.GetXMLResult(completed_test_ids,
-                                              server_url=options.server)
-    result_test_ids = set(test_results.keys())
-    for test_id in completed_test_ids:
-      if test_id not in result_test_ids:
-        logging.warn('The XML failed to retrieve: %s', test_id)
+            logging.warn('URL submission failed: %s, %s', url, location)
 
-    for test_id, dom in test_results.iteritems():
-      SaveTestResult(options.outputdir, id_url_dict[test_id], test_id,
-                     dom.toxml('utf-8'))
-    if pending_test_ids:
-      time.sleep(int(options.runs) * 10)
+    pending_test_ids = id_url_dict.keys()
+    if not os.path.isdir(options.outputdir):
+      os.mkdir(options.outputdir)
+    while pending_test_ids:
+      # TODO(zhaoq): add an expiring mechanism so that if some tests are stuck
+      # too long they will reported as permanent errors and while loop will be
+      # terminated.
+
+      id_status_dict = wpt_batch_lib.CheckBatchStatus(pending_test_ids,
+                                                      server_url=options.server)
+      completed_test_ids = []
+      for test_id, test_status in id_status_dict.iteritems():
+        # We could get 4 different status codes with different meanings as
+        # as follows:
+        # 1XX: Test in progress
+        # 200: Test complete
+        # 4XX: Test request not found
+        if int(test_status) >= 200:
+          pending_test_ids.remove(test_id)
+          if test_status == '200':
+            completed_test_ids.append(test_id)
+          else:
+            logging.warn('Tests failed with status $s: %s', test_status, test_id)
+      time.sleep(1)
+      test_results = wpt_batch_lib.GetXMLResult(completed_test_ids,
+                                                server_url=options.server)
+      result_test_ids = set(test_results.keys())
+      for test_id in completed_test_ids:
+        if test_id not in result_test_ids:
+          logging.warn('The XML failed to retrieve: %s', test_id)
+
+      for test_id, dom in test_results.iteritems():
+        id_dom_dict[test_id] = dom
+        SaveTestResult(options.outputdir, url, id_url_dict[test_id], test_id,
+                       dom.toxml('utf-8'))
+      if pending_test_ids:
+        time.sleep(int(options.runs) * 10)
+
+    row = [url]
+    for i in range(len(locations)):
+      testId = location_id_dict[i]
+      dom = id_dom_dict[testId]
+      nodes = dom.getElementsByTagName('screenShot')
+      screenshot = nodes[2].firstChild.wholeText
+      row.append(screenshot)
+         
+    for i in range(len(locations)):
+      for j in range(i + 1, len(locations)):
+        testId1 = location_id_dict[i]
+        testId2 = location_id_dict[j]
+        dom1 = id_dom_dict[testId1]
+        dom2 = id_dom_dict[testId2]
+        nodes1 = dom1.getElementsByTagName('screenShot')
+        screenshot1 = nodes1[2].firstChild.wholeText
+        nodes2 = dom2.getElementsByTagName('screenShot')
+        screenshot2 = nodes2[2].firstChild.wholeText
+        bashCommand = "ruby wpt_batch.rb " + screenshot1 + " " + screenshot2 
+        print bashCommand
+        import subprocess
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        output = process.communicate()[0]
+        row.append(output.rstrip('\n'))
+    writer.writerow(row)
+
+
+
 
 
 def main():
@@ -199,8 +260,6 @@ def main():
                            default='Test', help='test location')
   option_parser.add_option('-m', '--mv', action='store', default=1,
                            help='video only saved for the median run')
-  option_parser.add_option('-b', '--mobile', action='store_true',
-                           help='Turn on Chrome Mobile Option')
 
   options, args = option_parser.parse_args()
 
