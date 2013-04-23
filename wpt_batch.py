@@ -109,9 +109,6 @@ def RunBatch(options):
     test_params['k'] = options.key
 
   requested_urls = wpt_batch_lib.ImportUrls(options.urlfile)
-  csvfile = open(options.outputdir + '/imageComparison.csv', 'wb')
-  writer = csv.writer(csvfile)
-  writer.writerow(['url'] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"] + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"])
 
   for url in requested_urls:
     id_url_dict = {}
@@ -142,6 +139,15 @@ def RunBatch(options):
     pending_test_ids = id_url_dict.keys()
     if not os.path.isdir(options.outputdir):
       os.mkdir(options.outputdir)
+
+    csvfile = open(options.outputdir + '/imageComparison.csv', 'wb')
+    writer = csv.writer(csvfile)
+    firstRow = ['url'] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
+    firstRow = firstRow + [locations[0] + "_tcpdump"] + [locations[1] + "_tcpdump"] + [locations[2] + "_mobile" + "_tcpdump"]
+    firstRow = firstRow + [locations[0] + "_xml"] + [locations[1] + "_xml"] + [locations[2] + "_mobile" + "_xml"]
+    #firstRow = firstRow + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"]
+    writer.writerow(firstRow)
+
     while pending_test_ids:
       # TODO(zhaoq): add an expiring mechanism so that if some tests are stuck
       # too long they will reported as permanent errors and while loop will be
@@ -184,7 +190,15 @@ def RunBatch(options):
       nodes = dom.getElementsByTagName('screenShot')
       screenshot = nodes[2].firstChild.wholeText
       row.append(screenshot)
-         
+
+    for i in range(len(locations)):
+      testId = location_id_dict[i]
+      row.append(options.server + 'getgzip.php?test=' + testId + '&file=1.cap')
+
+    for i in range(len(locations)):
+      testId = location_id_dict[i]
+      row.append(options.server + 'xmlResult.php?test=' + testId)
+    """     
     for i in range(len(locations)):
       for j in range(i + 1, len(locations)):
         testId1 = location_id_dict[i]
@@ -201,6 +215,7 @@ def RunBatch(options):
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
         output = process.communicate()[0]
         row.append(output.rstrip('\n'))
+    """
     writer.writerow(row)
 
 
