@@ -122,3 +122,12 @@ def GetXMLResult(test_ids, server_url='http://www.webpagetest.org/',
       dom = minidom.parseString(response.read())
       id_dom_dict[test_id] = dom
   return id_dom_dict
+
+def GetImg(request, filename):
+  try:
+    print "Geting Screenshot: " + request + " AND writing to: " + filename 
+    urllib.urlretrieve(request, filename)
+  except Exception, e:
+    print str(e)
+
+

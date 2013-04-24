@@ -31,6 +31,7 @@ import os
 import time
 import sys
 import csv
+import re
 
 import wpt_batch_lib
 
@@ -110,7 +111,25 @@ def RunBatch(options):
 
   requested_urls = wpt_batch_lib.ImportUrls(options.urlfile)
 
-  for url in requested_urls:
+  if not os.path.isdir(options.outputdir):
+      os.mkdir(options.outputdir)
+  if os.path.exists(options.outputdir + '/imageComparison.csv'):
+    print "PATH EXISTS"
+    csvfile = open(options.outputdir + '/imageComparison.csv', 'ab')
+    writer = csv.writer(csvfile)
+  else:  
+    print "PATH DOESN'T EXISTS"
+    csvfile = open(options.outputdir + '/imageComparison.csv', 'ab')
+    writer = csv.writer(csvfile)
+    firstRow = ['url'] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
+    firstRow = firstRow + [locations[0] + "_tcpdump"] + [locations[1] + "_tcpdump"] + [locations[2] + "_mobile" + "_tcpdump"]
+    firstRow = firstRow + [locations[0] + "_xml"] + [locations[1] + "_xml"] + [locations[2] + "_mobile" + "_xml"]
+    firstRow = firstRow + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"]
+    writer.writerow(firstRow)
+
+  for k in range(len(requested_urls)):
+    url = requested_urls[k]
+    print "Testng URL: " + url
     id_url_dict = {}
     location_id_dict = {}
     id_dom_dict = {}
@@ -137,16 +156,9 @@ def RunBatch(options):
             logging.warn('URL submission failed: %s, %s', url, location)
 
     pending_test_ids = id_url_dict.keys()
-    if not os.path.isdir(options.outputdir):
-      os.mkdir(options.outputdir)
 
-    csvfile = open(options.outputdir + '/imageComparison.csv', 'wb')
-    writer = csv.writer(csvfile)
-    firstRow = ['url'] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
-    firstRow = firstRow + [locations[0] + "_tcpdump"] + [locations[1] + "_tcpdump"] + [locations[2] + "_mobile" + "_tcpdump"]
-    firstRow = firstRow + [locations[0] + "_xml"] + [locations[1] + "_xml"] + [locations[2] + "_mobile" + "_xml"]
-    #firstRow = firstRow + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"]
-    writer.writerow(firstRow)
+    if not os.path.isdir(options.outputdir + "/" + str(k)):
+      os.mkdir(options.outputdir + "/" + str(k))
 
     while pending_test_ids:
       # TODO(zhaoq): add an expiring mechanism so that if some tests are stuck
@@ -178,44 +190,55 @@ def RunBatch(options):
 
       for test_id, dom in test_results.iteritems():
         id_dom_dict[test_id] = dom
-        SaveTestResult(options.outputdir, url, id_url_dict[test_id], test_id,
-                       dom.toxml('utf-8'))
+        #SaveTestResult(options.outputdir, url, id_url_dict[test_id], test_id,
+        #              dom.toxml('utf-8'))
       if pending_test_ids:
         time.sleep(int(options.runs) * 10)
 
+    print "All Crawls Completed for URL: " + url 
+
     row = [url]
     for i in range(len(locations)):
-      testId = location_id_dict[i]
-      dom = id_dom_dict[testId]
-      nodes = dom.getElementsByTagName('screenShot')
-      screenshot = nodes[2].firstChild.wholeText
-      row.append(screenshot)
+      try:
+        testId = location_id_dict[i]
+        dom = id_dom_dict[testId]
+        nodes = dom.getElementsByTagName('screenShot')
+        screenshot = nodes[2].firstChild.wholeText
+        row.append(screenshot)
+        wpt_batch_lib.GetImg(screenshot, options.outputdir + "/" + str(k) + "/" + testId + ".jpg")
+      except Exception, e:
+        print str(e)
+        row.append("ERROR")
 
     for i in range(len(locations)):
-      testId = location_id_dict[i]
-      row.append(options.server + 'getgzip.php?test=' + testId + '&file=1.cap')
+      try:
+        testId = location_id_dict[i]
+        row.append(options.server + 'getgzip.php?test=' + testId + '&file=1.cap')
+      except:
+        row.append("ERROR")
 
     for i in range(len(locations)):
-      testId = location_id_dict[i]
-      row.append(options.server + 'xmlResult.php?test=' + testId)
-    """     
+      try:
+        testId = location_id_dict[i]
+        row.append(options.server + 'xmlResult.php?test=' + testId)
+      except:
+        row.append("ERROR")  
     for i in range(len(locations)):
       for j in range(i + 1, len(locations)):
         testId1 = location_id_dict[i]
         testId2 = location_id_dict[j]
-        dom1 = id_dom_dict[testId1]
-        dom2 = id_dom_dict[testId2]
-        nodes1 = dom1.getElementsByTagName('screenShot')
-        screenshot1 = nodes1[2].firstChild.wholeText
-        nodes2 = dom2.getElementsByTagName('screenShot')
-        screenshot2 = nodes2[2].firstChild.wholeText
-        bashCommand = "ruby wpt_batch.rb " + screenshot1 + " " + screenshot2 
+        screenshot1 = options.outputdir + "/" + str(k) + "/" + testId1 + ".jpg"
+        screenshot2 = options.outputdir + "/" + str(k) + "/" + testId2 + ".jpg"
+        bashCommand = " /usr/bin/opensift/bin/match " + screenshot1 + " " + screenshot2
         print bashCommand
         import subprocess
-        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-        output = process.communicate()[0]
-        row.append(output.rstrip('\n'))
-    """
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = process.communicate()[1]
+        m = re.match(r"[\S\s]* (\d+ total matches)", output)
+        if not m == None:
+          row.append(m.group(1))
+        else:
+          row.append('ERROR')
     writer.writerow(row)
 
 
