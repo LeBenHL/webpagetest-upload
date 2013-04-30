@@ -82,8 +82,8 @@ def RunBatch(options):
   
   locations = []
   locations.append("Android-Nexus4")
-  locations.append("Thinkpad-WPTDrive:Chrome")
-  locations.append("Thinkpad-WPTDrive:Chrome")
+  locations.append("Desktop-WPTDrive:Chrome")
+  locations.append("Desktop-WPTDrive:Chrome")
   test_params = {'f': 'xml',
                  'private': 1,
                  'priority': 6,
@@ -113,23 +113,27 @@ def RunBatch(options):
 
   if not os.path.isdir(options.outputdir):
       os.mkdir(options.outputdir)
+
   if os.path.exists(options.outputdir + '/imageComparison.csv'):
-    print "PATH EXISTS"
+    sys.stderr.write("PATH EXISTS" + '\n')
     csvfile = open(options.outputdir + '/imageComparison.csv', 'ab')
     writer = csv.writer(csvfile)
   else:  
-    print "PATH DOESN'T EXISTS"
+    sys.stderr.write("PATH DOESN'T EXISTS" + '\n')
     csvfile = open(options.outputdir + '/imageComparison.csv', 'ab')
     writer = csv.writer(csvfile)
-    firstRow = ['url'] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
+    firstRow = ['url'] + [locations[0] + "_id"] + [locations[1] + "_id"] + [locations[2] + "_mobile" + "_id"] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
     firstRow = firstRow + [locations[0] + "_tcpdump"] + [locations[1] + "_tcpdump"] + [locations[2] + "_mobile" + "_tcpdump"]
     firstRow = firstRow + [locations[0] + "_xml"] + [locations[1] + "_xml"] + [locations[2] + "_mobile" + "_xml"]
     firstRow = firstRow + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"]
     writer.writerow(firstRow)
 
+  if not os.path.isdir(options.outputdir + "/" + 'temp'):
+    os.mkdir(options.outputdir + "/" + 'temp')
+
   for k in range(len(requested_urls)):
     url = requested_urls[k]
-    print "Testng URL: " + url
+    sys.stderr.write("Testng URL: " + url + '\n')
     id_url_dict = {}
     location_id_dict = {}
     id_dom_dict = {}
@@ -156,9 +160,6 @@ def RunBatch(options):
             logging.warn('URL submission failed: %s, %s', url, location)
 
     pending_test_ids = id_url_dict.keys()
-
-    if not os.path.isdir(options.outputdir + "/" + str(k)):
-      os.mkdir(options.outputdir + "/" + str(k))
 
     while pending_test_ids:
       # TODO(zhaoq): add an expiring mechanism so that if some tests are stuck
@@ -195,9 +196,17 @@ def RunBatch(options):
       if pending_test_ids:
         time.sleep(int(options.runs) * 10)
 
-    print "All Crawls Completed for URL: " + url 
+    sys.stderr.write("All Crawls Completed for URL: " + url + '\n') 
 
     row = [url]
+
+    for i in range(len(locations)):
+      try:
+        testId = location_id_dict[i]
+        row.append(testId)
+      except:
+        row.append("ERROR")
+
     for i in range(len(locations)):
       try:
         testId = location_id_dict[i]
@@ -205,9 +214,9 @@ def RunBatch(options):
         nodes = dom.getElementsByTagName('screenShot')
         screenshot = nodes[2].firstChild.wholeText
         row.append(screenshot)
-        wpt_batch_lib.GetImg(screenshot, options.outputdir + "/" + str(k) + "/" + testId + ".jpg")
+        wpt_batch_lib.GetImg(screenshot, options.outputdir + "/" + 'temp' + "/" + testId + ".jpg")
       except Exception, e:
-        print str(e)
+        sys.stderr.write(str(e) + '\n')
         row.append("ERROR")
 
     for i in range(len(locations)):
@@ -225,21 +234,31 @@ def RunBatch(options):
         row.append("ERROR")  
     for i in range(len(locations)):
       for j in range(i + 1, len(locations)):
-        testId1 = location_id_dict[i]
-        testId2 = location_id_dict[j]
-        screenshot1 = options.outputdir + "/" + str(k) + "/" + testId1 + ".jpg"
-        screenshot2 = options.outputdir + "/" + str(k) + "/" + testId2 + ".jpg"
-        bashCommand = " /usr/bin/opensift/bin/match " + screenshot1 + " " + screenshot2
-        print bashCommand
-        import subprocess
-        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output = process.communicate()[1]
-        m = re.match(r"[\S\s]* (\d+ total matches)", output)
-        if not m == None:
+        try:
+          testId1 = location_id_dict[i]
+          testId2 = location_id_dict[j]
+          screenshot1 = options.outputdir + "/" + 'temp' + "/" + testId1 + ".jpg"
+          screenshot2 = options.outputdir + "/" + 'temp' + "/" + testId2 + ".jpg"
+          bashCommand = " /usr/bin/opensift/bin/match " + screenshot1 + " " + screenshot2
+          sys.stderr.write(bashCommand + '\n')
+          import subprocess
+          process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+          output = process.communicate()[1]
+          m = re.match(r"[\S\s]* (\d+) total matches", output)
           row.append(m.group(1))
-        else:
+        except:
           row.append('ERROR')
+
+    directory =  options.outputdir + "/" + 'temp'    
+    for the_file in os.listdir(directory):
+      file_path = os.path.join(directory, the_file)
+      try:
+          if os.path.isfile(file_path):
+              os.unlink(file_path)
+      except Exception, e:
+          print e
     writer.writerow(row)
+    csvfile.flush()
 
 
 
