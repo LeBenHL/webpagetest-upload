@@ -122,10 +122,11 @@ def RunBatch(options):
     sys.stderr.write("PATH DOESN'T EXISTS" + '\n')
     csvfile = open(options.outputdir + '/imageComparison.csv', 'ab')
     writer = csv.writer(csvfile)
-    firstRow = ['url'] + [locations[0] + "_id"] + [locations[1] + "_id"] + [locations[2] + "_mobile" + "_id"] + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
+    firstRow = ['url']  + [locations[0] + "_img"] + [locations[1] + "_img"] + [locations[2] + "_mobile" + "_img"]
     firstRow = firstRow + [locations[0] + "_tcpdump"] + [locations[1] + "_tcpdump"] + [locations[2] + "_mobile" + "_tcpdump"]
     firstRow = firstRow + [locations[0] + "_xml"] + [locations[1] + "_xml"] + [locations[2] + "_mobile" + "_xml"]
     firstRow = firstRow + [locations[0] + " _VS_" + locations[1]] + [locations[0] + " _VS_" + locations[2] + "_mobile"] + [locations[1] + " _VS_" + locations[2] + "_mobile"]
+    firstRow = firstRow + [locations[0] + "_id"] + [locations[1] + "_id"] + [locations[2] + "_mobile" + "_id"]
     writer.writerow(firstRow)
 
   if not os.path.isdir(options.outputdir + "/" + 'temp'):
@@ -203,13 +204,6 @@ def RunBatch(options):
     for i in range(len(locations)):
       try:
         testId = location_id_dict[i]
-        row.append(testId)
-      except:
-        row.append("ERROR")
-
-    for i in range(len(locations)):
-      try:
-        testId = location_id_dict[i]
         dom = id_dom_dict[testId]
         nodes = dom.getElementsByTagName('screenShot')
         screenshot = nodes[2].firstChild.wholeText
@@ -257,6 +251,14 @@ def RunBatch(options):
               os.unlink(file_path)
       except Exception, e:
           print e
+
+    for i in range(len(locations)):
+      try:
+        testId = location_id_dict[i]
+        row.append(testId)
+      except:
+        row.append("ERROR")
+
     writer.writerow(row)
     csvfile.flush()
 
