@@ -15,6 +15,7 @@ __author__ = 'zhaoq@google.com (Qi Zhao)'
 
 import re
 import urllib
+import time
 from xml.dom import minidom
 
 
@@ -28,7 +29,13 @@ def __LoadEntity(url, urlopen=urllib.urlopen):
   Returns:
     The response message
   """
-  response = urlopen(url)
+  tryAgain = True
+  while(tryAgain):
+    try:
+      response = urlopen(url)
+      tryAgain = False
+    except Exception, e:
+      time.sleep(5)
   return response
 
 
