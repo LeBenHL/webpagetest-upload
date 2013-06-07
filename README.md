@@ -3,8 +3,8 @@ webpagetest-upload
 
 TO USE
 
-1/ Throw URL's into a text file. Where each url is delimited by a new line.
-2/ Run python wpt_batch.py -s [SERVER URL] -i [URLFILE] -f [OUTPUTDIR] -r 1 -t True
+1/ Throw URL's into a text file. Where each url is delimited by a new line. \n
+2/ Run python wpt_batch.py -s [SERVER URL] -i [URLFILE] -f [OUTPUTDIR] -r 1 -t True \n
 3/ Results will be thrown in OUTPUTDIR/imageComparision.csv
 
 All URL's will be crawled by three different agents: Android, Desktop Chrome, and Desktop Chrome in Mobile mode.
