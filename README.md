@@ -1,9 +1,12 @@
 webpagetest-upload
 ==================
 
-NO NEED TO USE BASH SCRIPT TO SPLIT URL.TEXT TO SEND TO MULTIPLE ANDROID DEVICES. DO NOT USE BASH SCRIPT FOR NOW, JUST SEND URLS TO Android-Nexus4 AND IT WILL AUTOMATICALLY LOAD BALANCE ITSELF.
+TO USE
 
-To use wpt_batch.py, please look read https://sites.google.com/a/webpagetest.org/docs/advanced-features/webpagetest-batch-processing-command-line-tool.
+1/ Throw URL's into a text file. Where each url is delimited by a new line.
+2/ Run python wpt_batch.py -s [SERVER URL] -i [URLFILE] -f [OUTPUTDIR] -r 1 -t True
+3/ Results will be thrown in OUTPUTDIR/imageComparision.csv
 
-I also added in another option to the python script. Add in flag -b or --mobile to turn on the Chrome mobile emulation.
+All URL's will be crawled by three different agents: Android, Desktop Chrome, and Desktop Chrome in Mobile mode.
 
+Currently, the columns collected in the CSV file are the screenshot urls for the 3 different agents, the tcpdump urls, the xml urls, Image comparision values for each agent against another agent, and the testing id's.
